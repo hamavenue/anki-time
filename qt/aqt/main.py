@@ -96,6 +96,10 @@ MainWindowState = Literal[
 
 T = TypeVar("T")
 
+MIN_ZOOM = 0.5
+MAX_ZOOM = 3.0
+ZOOM_STEP = 0.1
+
 
 class MainWebView(AnkiWebView):
     def __init__(self, mw: AnkiQt) -> None:
@@ -965,6 +969,7 @@ title="{}" {}>{}</button>""".format(
         self.toolbar = Toolbar(self, tweb)
         # main area
         self.web = MainWebView(self)
+        self.web.setZoomFactor(self.pm.main_zoom())
         # bottom area
         sweb = self.bottomWeb = BottomWebView(self)
         sweb.setFocusPolicy(Qt.FocusPolicy.WheelFocus)
@@ -1460,15 +1465,12 @@ title="{}" {}>{}</button>""".format(
         qconnect(m.actionPreferences.triggered, self.onPrefs)
 
         # View
-        qconnect(
-            m.actionZoomIn.triggered,
-            lambda: self.web.setZoomFactor(self.web.zoomFactor() + 0.1),
-        )
-        qconnect(
-            m.actionZoomOut.triggered,
-            lambda: self.web.setZoomFactor(self.web.zoomFactor() - 0.1),
-        )
-        qconnect(m.actionResetZoom.triggered, lambda: self.web.setZoomFactor(1))
+        qconnect(m.actionZoomIn.triggered, lambda: self.adjust_zoom(ZOOM_STEP))
+        qconnect(m.actionZoomOut.triggered, lambda: self.adjust_zoom(-ZOOM_STEP))
+        qconnect(m.actionResetZoom.triggered, self.reset_zoom)
+        # accept both the shifted and unshifted form of the zoom in key
+        m.actionZoomIn.setShortcuts([QKeySequence("Ctrl+="), QKeySequence("Ctrl++")])
+        m.actionZoomOut.setShortcut(QKeySequence("Ctrl+-"))
         # app-wide shortcut
         qconnect(m.actionFullScreen.triggered, self.on_toggle_full_screen)
         m.actionFullScreen.setShortcut(
@@ -1481,6 +1483,18 @@ title="{}" {}>{}</button>""".format(
 
     # View
     ##########################################################################
+
+    def adjust_zoom(self, delta: float) -> None:
+        # rounded to avoid accumulating float error over repeated steps
+        self._set_zoom(round(self.web.zoomFactor() + delta, 1))
+
+    def reset_zoom(self) -> None:
+        self._set_zoom(1.0)
+
+    def _set_zoom(self, factor: float) -> None:
+        factor = min(max(factor, MIN_ZOOM), MAX_ZOOM)
+        self.web.setZoomFactor(factor)
+        self.pm.set_main_zoom(factor)
 
     def on_toggle_full_screen(self) -> None:
         if disallow_full_screen():

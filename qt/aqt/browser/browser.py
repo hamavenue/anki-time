@@ -34,6 +34,7 @@ from aqt.addcards import NewAddCards
 from aqt.addcards_legacy import AddCards
 from aqt.errors import show_exception
 from aqt.import_export.exporting import ExportDialog
+from aqt.main import MAX_ZOOM, MIN_ZOOM, ZOOM_STEP
 from aqt.operations.card import set_card_deck, set_card_flag
 from aqt.operations.collection import redo, undo
 from aqt.operations.note import remove_notes
@@ -314,22 +315,17 @@ class Browser(QMainWindow):
 
         # view
         qconnect(f.actionFullScreen.triggered, self.mw.on_toggle_full_screen)
+        qconnect(f.actionZoomIn.triggered, lambda: self._adjust_editor_zoom(ZOOM_STEP))
         qconnect(
-            f.actionZoomIn.triggered,
-            lambda: self._editor_web_view().setZoomFactor(
-                self._editor_web_view().zoomFactor() + 0.1
-            ),
-        )
-        qconnect(
-            f.actionZoomOut.triggered,
-            lambda: self._editor_web_view().setZoomFactor(
-                self._editor_web_view().zoomFactor() - 0.1
-            ),
+            f.actionZoomOut.triggered, lambda: self._adjust_editor_zoom(-ZOOM_STEP)
         )
         qconnect(
             f.actionResetZoom.triggered,
             lambda: self._editor_web_view().setZoomFactor(1),
         )
+        # accept both the shifted and unshifted form of the zoom in key
+        f.actionZoomIn.setShortcuts([QKeySequence("Ctrl+="), QKeySequence("Ctrl++")])
+        f.actionZoomOut.setShortcut(QKeySequence("Ctrl+-"))
         qconnect(
             self.form.actionLayoutAuto.triggered,
             lambda: self.set_layout(BrowserLayout.AUTO),
@@ -403,6 +399,12 @@ class Browser(QMainWindow):
         add_ellipsis_to_action_label(f.actionCopy)
         add_ellipsis_to_action_label(f.action_forget)
         add_ellipsis_to_action_label(f.action_grade_now)
+
+    def _adjust_editor_zoom(self, delta: float) -> None:
+        web_view = self._editor_web_view()
+        # rounded to avoid accumulating float error over repeated steps
+        factor = round(web_view.zoomFactor() + delta, 1)
+        web_view.setZoomFactor(min(max(factor, MIN_ZOOM), MAX_ZOOM))
 
     def _editor_web_view(
         self,

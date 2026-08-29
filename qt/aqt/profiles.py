@@ -539,6 +539,12 @@ create table if not exists profiles
     def setUiScale(self, scale: float) -> None:
         self.meta["uiScale"] = scale
 
+    def main_zoom(self) -> float:
+        return self.meta.get("mainZoom", 1.0)
+
+    def set_main_zoom(self, zoom: float) -> None:
+        self.meta["mainZoom"] = zoom
+
     def reduce_motion(self) -> bool:
         return self.meta.get("reduce_motion", True)
 
