@@ -545,6 +545,12 @@ create table if not exists profiles
     def set_main_zoom(self, zoom: float) -> None:
         self.meta["mainZoom"] = zoom
 
+    def image_zoom(self) -> float:
+        return self.meta.get("imageZoom", 1.0)
+
+    def set_image_zoom(self, zoom: float) -> None:
+        self.meta["imageZoom"] = zoom
+
     def reduce_motion(self) -> bool:
         return self.meta.get("reduce_motion", True)
 

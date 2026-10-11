@@ -34,6 +34,30 @@ img {
     max-height: 95vh;
 }
 
+/* Image zoom. Gated on a class so that at 100% no rule applies at all and
+   rendering is unchanged. Scoped to #qa so it outranks a note type's own
+   `.card img` rules, which are injected after this stylesheet. */
+:root.image-zoom #qa img {
+    zoom: var(--image-zoom, 1);
+    /* the limits above resolve in the scaled coordinate space, so they would
+       silently cap any zoom greater than 1 */
+    max-width: none;
+    max-height: none;
+}
+
+/* image occlusion sizes its images from the container instead */
+:root.image-zoom #qa #image-occlusion-container img {
+    zoom: 1;
+    max-width: unset;
+    max-height: unset;
+}
+
+/* whiteboard drawings carry their own fixed zoom; the .drawing rule further
+   down this file has lower specificity than the block above */
+:root.image-zoom #qa img.drawing {
+    zoom: 50%;
+}
+
 li {
     text-align: start;
 }

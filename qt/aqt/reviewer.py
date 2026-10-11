@@ -66,6 +66,12 @@ class RefreshNeeded(Enum):
     FLAG = auto()
 
 
+IMAGE_ZOOM_MIN = 0.5
+IMAGE_ZOOM_MAX = 5.0
+# larger than the main window's step, as state shortcuts don't auto-repeat
+IMAGE_ZOOM_STEP = 0.25
+
+
 class ReviewerBottomBar:
     def __init__(self, reviewer: Reviewer) -> None:
         self.reviewer = reviewer
@@ -353,6 +359,8 @@ class Reviewer:
         # block default drag & drop behavior while allowing drop events to be received by JS handlers
         self.web.allow_drops = True
         self.web.eval("_blockDefaultDragDropBehavior();")
+        # stdHtml reloads the page, so reattach the saved image zoom
+        self._apply_image_zoom()
         # show answer / ease buttons
         self.bottom.web.stdHtml(
             self._bottomHTML(),
@@ -360,6 +368,32 @@ class Reviewer:
             js=["js/vendor/jquery.min.js", "js/reviewer-bottom.js"],
             context=ReviewerBottomBar(self),
         )
+
+    # Image zoom
+    ##########################################################################
+
+    def _apply_image_zoom(self) -> None:
+        factor = self.mw.pm.image_zoom()
+        # set on documentElement rather than body, as _showQuestion() assigns
+        # body.className outright on every card
+        self.web.eval(
+            f"document.documentElement.style.setProperty('--image-zoom', '{factor}');"
+            f"document.documentElement.classList.toggle('image-zoom', {json.dumps(factor != 1.0)});"
+        )
+
+    def adjust_image_zoom(self, delta: float) -> None:
+        # rounded to avoid accumulating float error over repeated steps
+        self._set_image_zoom(round(self.mw.pm.image_zoom() + delta, 2))
+
+    def reset_image_zoom(self) -> None:
+        self._set_image_zoom(1.0)
+
+    def _set_image_zoom(self, factor: float) -> None:
+        factor = min(max(factor, IMAGE_ZOOM_MIN), IMAGE_ZOOM_MAX)
+        self.mw.pm.set_image_zoom(factor)
+        self._apply_image_zoom()
+        # the only feedback available, as there is no menu item
+        tooltip(f"Image zoom {round(factor * 100)}%", period=1000)
 
     # Showing the question
     ##########################################################################
@@ -637,6 +671,11 @@ class Reviewer:
             ("6", self.on_seek_backward),
             ("7", self.on_seek_forward),
             ("Shift+A", self.toggle_auto_advance),
+            # zoom the card's images only; the main window's Ctrl+= zooms everything
+            ("Ctrl+Shift+=", lambda: self.adjust_image_zoom(IMAGE_ZOOM_STEP)),
+            ("Ctrl+Shift++", lambda: self.adjust_image_zoom(IMAGE_ZOOM_STEP)),
+            ("Ctrl+Shift+-", lambda: self.adjust_image_zoom(-IMAGE_ZOOM_STEP)),
+            ("Ctrl+Shift+0", self.reset_image_zoom),
             *self.korean_shortcuts(),
         ]
 
